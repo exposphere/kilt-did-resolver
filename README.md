@@ -29,10 +29,10 @@ EOL
 npm run dev
 
 # Test KILT resolution
-curl http://localhost:3000/did:kilt:4sGYUHba7eKksK2izguJsEanMjuu9ne3BsWDG6Vf9MTTt8Db
+curl http://localhost:3000/did:kilt:4sGYUHba7eKksK2izguJsEanMjuu9ne3BsWDG6Vf9MTTt8Db | jq . 
 
 # Test PLC resolution
-curl http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz
+curl http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz | jq . 
 ```
 
 ## Network Configuration
