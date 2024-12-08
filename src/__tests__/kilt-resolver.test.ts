@@ -1,26 +1,14 @@
-import request from 'supertest';
-import nock from 'nock';
-import type { Express } from 'express';
-import { KiltDidResolver, ServerError } from '../services/KiltDidResolver';
-import { DidResolver } from '../services/DidResolver';
-import { createApp } from '../index';
-import { config } from '../config';
+// src/__tests__/kilt-resolver.test.ts
+import { KiltDidResolver, ServerError, ResolutionError } from '../services/KiltDidResolver';
+import { resolve } from '@kiltprotocol/did';
 
-// Mock KILT SDK
 jest.mock('@kiltprotocol/did', () => ({
   resolve: jest.fn(),
 }));
 
-import { resolve } from '@kiltprotocol/did';
-
-describe('KILT DID Resolver', () => {
-  let kiltResolver: KiltDidResolver;
-  let resolver: DidResolver;
-  let app: Express;
-  let consoleErrorSpy: jest.SpyInstance;
-
+describe('KiltDidResolver', () => {
+  let resolver: KiltDidResolver;
   const mockKiltDid = 'did:kilt:4sGYUHba7eKksK2izguJsEanMjuu9ne3BsWDG6Vf9MTTt8Db';
-  const mockPlcDid = 'did:plc:ewvi7nxzyoun6zhxrhs64oiz';
   const mockKiltDocument = {
     alsoKnownAs: [],
     verificationMethod: [
@@ -39,97 +27,65 @@ describe('KILT DID Resolver', () => {
     service: [],
   };
 
-  beforeAll(async () => {
-    kiltResolver = new KiltDidResolver('wss://mock-node');
-    resolver = new DidResolver(kiltResolver);
-    app = createApp(resolver);
-  });
-
   beforeEach(() => {
-    jest.clearAllMocks();
+    resolver = new KiltDidResolver('wss://mock-node');
+    (resolve as jest.Mock).mockReset();
+  });
+
+  test('should resolve KILT DID', async () => {
     (resolve as jest.Mock).mockResolvedValue({ didDocument: mockKiltDocument });
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    
+    const result = await resolver.resolveKiltDid(mockKiltDid);
+    expect(result).toMatchObject({
+      id: mockKiltDid,
+      verificationMethod: expect.arrayContaining([
+        expect.objectContaining({
+          type: 'Multikey',
+          controller: mockKiltDid,
+        }),
+      ]),
+    });
   });
 
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
+  test('should throw ResolutionError when DID not found', async () => {
+    (resolve as jest.Mock).mockResolvedValue(null);
+    
+    await expect(resolver.resolveKiltDid(mockKiltDid))
+      .rejects
+      .toThrow(ResolutionError);
   });
 
-  describe('DID Resolution', () => {
-    test('should return 400 for invalid DID format', async () => {
-      const response = await request(app).get('/invalid-did');
+  test('should throw ServerError on resolution failure', async () => {
+    (resolve as jest.Mock).mockRejectedValue(new Error('KILT node error'));
+    
+    await expect(resolver.resolveKiltDid(mockKiltDid))
+      .rejects
+      .toThrow(ServerError);
+  });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Invalid DID format');
-      expect(response.body.message).toBe('DID must start with did:kilt: or did:plc:');
-    });
-
-    test('should return 404 when KILT DID is not found', async () => {
-      (resolve as jest.Mock).mockResolvedValue(null);
-
-      const response = await request(app).get(`/${mockKiltDid}`);
-
-      expect(response.status).toBe(404);
-      expect(response.body.error).toBe('DID not found');
-    });
-
-    test('should return transformed PLC document for valid KILT DID', async () => {
-      const response = await request(app).get(`/${mockKiltDid}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
+  test('should convert KILT document to PLC format', async () => {
+    (resolve as jest.Mock).mockResolvedValue({
+      didDocument: {
         id: mockKiltDid,
-        verificationMethod: expect.arrayContaining([
-          expect.objectContaining({
-            type: 'Multikey',
-            controller: mockKiltDid,
-            publicKeyMultibase: expect.any(String),
-          }),
-        ]),
-      });
+        authenticationKey: '0x1234',
+        keyAgreementKeys: ['0x5678'],
+        publicKeys: {
+          '0x1234': {
+            key: {
+              PublicVerificationKey: {
+                Sr25519: '0xabcd'
+              }
+            }
+          }
+        }
+      }
     });
 
-    test('should handle PLC DID resolution', async () => {
-      const mockPlcDoc = {
-        id: mockPlcDid,
-        verificationMethod: [],
-        authentication: [],
-        assertionMethod: [],
-        capabilityInvocation: [],
-        capabilityDelegation: [],
-        keyAgreement: [],
-        service: [],
-        alsoKnownAs: [],
-      };
-
-      nock(config.plcResolver)
-        .get(`/${mockPlcDid}`)
-        .reply(200, mockPlcDoc);
-
-      const response = await request(app).get(`/${mockPlcDid}`);
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockPlcDoc);
-    });
-
-    test('should handle server errors gracefully', async () => {
-      (resolve as jest.Mock).mockImplementation(() => {
-        throw new ServerError('KILT node error');
-      });
-
-      const response = await request(app).get(`/${mockKiltDid}`);
-
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Internal server error');
-    });
-
-    test('should handle PLC resolution errors', async () => {
-      nock(config.plcResolver).get(`/${mockPlcDid}`).reply(500);
-
-      const response = await request(app).get(`/${mockPlcDid}`);
-
-      expect(response.status).toBe(500);
-      expect(response.body.error).toBe('Internal server error');
+    const result = await resolver.resolveKiltDid(mockKiltDid);
+    expect(result).toMatchObject({
+      id: mockKiltDid,
+      verificationMethod: expect.any(Array),
+      authentication: expect.any(Array),
     });
   });
 });

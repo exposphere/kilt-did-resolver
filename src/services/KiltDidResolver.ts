@@ -58,14 +58,30 @@ export class KiltDidResolver {
 
   async connect(): Promise<void> {
     if (this.isConnected) return;
+    
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout')), 10000);
+    });
 
     try {
-      console.log(`Connecting to KILT node at ${this.nodeUrl}...`);
-      await connect(this.nodeUrl);
+      await Promise.race([
+        connect(this.nodeUrl),
+        timeoutPromise
+      ]);
       this.isConnected = true;
       console.log('Successfully connected to KILT node.');
     } catch (error) {
-      throw new ServerError('Failed to connect to KILT node', error instanceof Error ? error : undefined);
+      throw new ServerError('Failed to connect to KILT node', error as Error);
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      // Test resolution of a known DID
+      await this.resolveKiltDid('did:kilt:4qZSoAZFjW4MqfNUpkCb2N2qYyxwZC9Fu6vxAbdp4DxuKJnh');
+      return true;
+    } catch {
+      return false;
     }
   }
 

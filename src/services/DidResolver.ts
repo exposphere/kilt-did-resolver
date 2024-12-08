@@ -1,54 +1,42 @@
 import axios, { AxiosError } from 'axios';
 import { config } from '../config';
-import { KiltDidResolver, PlcDidDocument } from './KiltDidResolver';
-
-interface PlcResponse {
-  "@context": string[];
-  id: string;
-  alsoKnownAs?: string[];
-  verificationMethod?: Array<{
-    id: string;
-    type: string;
-    controller: string;
-    publicKeyMultibase: string;
-  }>;
-  service?: Array<{
-    id: string;
-    type: string;
-    serviceEndpoint: string;
-  }>;
-}
+import { KiltDidResolver } from './KiltDidResolver';
+import { DidCache } from './CacheManager';
+import { PlcDidDocument } from '../types';
 
 export class DidResolver {
-  constructor(private kiltResolver: KiltDidResolver) {}
+  private cache: DidCache;
+
+  constructor(
+    private kiltResolver: KiltDidResolver,
+    ttlSeconds: number = 10 // Default TTL of 10 seconds
+  ) {
+    this.cache = new DidCache(ttlSeconds);
+  }
 
   async resolveDid(did: string): Promise<PlcDidDocument> {
+    // Try cache first
+    const cached = await this.cache.get(did);
+    if (cached !== null) {
+      return cached;
+    }
+
+    // If not in cache, resolve and cache
+    const result = await this._resolveDid(did);
+    await this.cache.set(did, result);
+    return result;
+  }
+
+  private async _resolveDid(did: string): Promise<PlcDidDocument> {
     if (did.startsWith('did:plc:')) {
       try {
-        console.log(`Resolving PLC DID: ${did}`);
-        // Use the direct URL format without /api/v1/did/
-        const response = await axios.get(`${config.plcResolver}/${did}`, {
+        const response = await axios.get<PlcDidDocument>(`${config.plcResolver}/${did}`, {
           headers: {
             'Accept': 'application/json'
           }
         });
 
-        const data = response.data as PlcResponse;
-        console.log('PLC resolver response:', JSON.stringify(data, null, 2));
-
-        const plcDoc: PlcDidDocument = {
-          id: data.id,
-          alsoKnownAs: data.alsoKnownAs ?? [],
-          verificationMethod: data.verificationMethod ?? [],
-          authentication: data.verificationMethod?.map(vm => vm.id) ?? [],
-          assertionMethod: [],
-          capabilityInvocation: [],
-          capabilityDelegation: [],
-          keyAgreement: [],
-          service: data.service ?? []
-        };
-
-        return plcDoc;
+        return response.data;
       } catch (err) {
         if (axios.isAxiosError(err)) {
           const axiosError = err as AxiosError;
@@ -61,8 +49,7 @@ export class DidResolver {
           if (axiosError.response?.status === 404) {
             throw new Error('DID not found');
           }
-          
-          throw new Error(`PLC resolution failed: ${axiosError.message}`);
+          throw new Error(`PLC resolution failed: ${err.message}`);
         }
         throw new Error(`Unexpected error during PLC resolution: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
@@ -73,5 +60,9 @@ export class DidResolver {
     }
 
     throw new Error('Unsupported DID method');
+  }
+
+  async disconnect(): Promise<void> {
+    await this.cache.disconnect();
   }
 }

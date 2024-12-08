@@ -1,3 +1,4 @@
+// src/types/index.ts
 export interface VerificationMethod {
   id: string;
   type: string;
@@ -12,8 +13,14 @@ export interface Service {
 }
 
 export interface PlcDidDocument {
+  "@context"?: string[];
   id: string;
-  alsoKnownAs?: string[];
+  alsoKnownAs: string[];
   verificationMethod: VerificationMethod[];
-  service?: Service[];
+  authentication: string[];
+  assertionMethod: string[];
+  capabilityInvocation: string[];
+  capabilityDelegation: string[];
+  keyAgreement: string[];
+  service: Service[];
 }

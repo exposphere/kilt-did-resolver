@@ -16,17 +16,12 @@
   },
   "dependencies": {
     "@kiltprotocol/sdk-js": "^1.0.0",
-    "@kiltprotocol/credentials": "^0.100.0",
-    "@kiltprotocol/legacy-credentials": "^0.100.0",
-    "@kiltprotocol/asset-credentials": "^0.100.0",
-    "@kiltprotocol/jsonld-suites": "^0.100.0",
-    "@kiltprotocol/chain-helpers": "^0.100.0",
-    "@kiltprotocol/did": "^0.100.0",
-    "@kiltprotocol/types": "^0.100.0",
-    "@kiltprotocol/utils": "^0.100.0",
+    "@types/cache-manager": "^4.0.6",
     "axios": "^1.7.9",
+    "cache-manager": "^6.3.0",
     "dotenv": "^16.3.1",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "keyv": "^5.2.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
