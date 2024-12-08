@@ -90,6 +90,57 @@ npm run list-dids        # List available DIDs on KILT chain
 - [API Documentation](docs/api.md)
 - [KILT to PLC DID Conversion](docs/kilt-plc-did-conversion.md)
 
+## Docker
+
+Supports both ARM64 and x86_64 architectures.
+
+### Build and Run Locally
+
+```bash
+# Build for your current platform
+docker build -t kilt-did-resolver .
+
+# Run container with resource limits
+docker run -d \
+  --name kilt-did-resolver \
+  --restart unless-stopped \
+  --cpus 1 \
+  --memory 1g \
+  -p 3000:3000 \
+  -e KILT_NODE_URL=wss://spiritnet.kilt.io \
+  -e PLC_RESOLVER=https://plc.directory \
+  kilt-did-resolver
+```
+
+### Multi-arch Build
+
+Build for multiple architectures using Docker BuildKit:
+
+```bash
+# Create builder instance
+docker buildx create --name multiarch --driver docker-container --use
+
+# Build and push multi-arch images
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t your-registry/kilt-did-resolver:latest \
+  --push \
+  .
+
+# Or build locally without pushing
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t kilt-did-resolver:latest \
+  --load \
+  .
+```
+
+### Check Image Details
+```bash
+# View supported architectures
+docker manifest inspect your-registry/kilt-did-resolver:latest
+```
+
 ## License
 
 MIT
