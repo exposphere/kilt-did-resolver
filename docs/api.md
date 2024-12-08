@@ -7,21 +7,22 @@
 GET /:did
 ```
 
-Direct DID resolution endpoint that matches PLC directory's format. Supports both KILT and PLC DIDs.
+Direct DID resolution endpoint that matches PLC directory's format exactly. Supports both KILT and PLC DIDs with efficient caching.
 
-#### Examples
+### Examples
 
-KILT DID:
 ```bash
-curl http://localhost:3000/did:kilt:4sGYUHba7eKksK2izguJsEanMjuu9ne3BsWDG6Vf9MTTt8Db
+# KILT DID Resolution
+curl -v http://localhost:3000/did:kilt:4sGYUHba7eKksK2izguJsEanMjuu9ne3BsWDG6Vf9MTTt8Db
+
+# PLC DID Resolution
+curl -v http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz
+
+# Health Check
+curl -v http://localhost:3000/health
 ```
 
-PLC DID:
-```bash
-curl http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz
-```
-
-#### Response Format
+### Response Format
 ```typescript
 {
   "@context": [
@@ -29,6 +30,7 @@ curl http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz
     "https://w3id.org/security/multikey/v1"
   ],
   "id": "did:...",
+  "alsoKnownAs": [],
   "verificationMethod": [{
     "id": "did:...#key-1",
     "type": "Multikey",
@@ -36,16 +38,19 @@ curl http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz
     "publicKeyMultibase": "z..."
   }],
   "authentication": ["did:...#key-1"],
+  "assertionMethod": [],
+  "capabilityInvocation": [],
+  "capabilityDelegation": [],
+  "keyAgreement": [],
   "service": [{
     "id": "#service-1",
     "type": "ServiceType",
     "serviceEndpoint": "https://..."
-  }],
-  "alsoKnownAs": ["at://..."]
+  }]
 }
 ```
 
-#### Error Responses
+### Error Responses
 
 Invalid DID (400):
 ```json
@@ -63,6 +68,14 @@ DID Not Found (404):
 }
 ```
 
+Rate Limit Exceeded (429):
+```json
+{
+  "error": "Too many requests",
+  "message": "Please try again later"
+}
+```
+
 Server Error (500):
 ```json
 {
@@ -71,28 +84,37 @@ Server Error (500):
 }
 ```
 
-## Integration with AT Protocol
+## Security Features
 
-### Client Configuration
-Use this resolver as a direct replacement for PLC directory:
+### Rate Limiting
+- Default: 100 requests per 15-minute window per IP
+- Configurable via environment variables
+- Returns 429 status code when exceeded
+- Includes standard rate limit headers:
+  - `RateLimit-Limit`
+  - `RateLimit-Remaining`
+  - `RateLimit-Reset`
 
-```typescript
-const client = new AtpClient({
-  service: {
-    didResolver: 'https://your-resolver.com'  // No path needed
-  }
-});
+### Security Headers
+All responses include secure headers configured via Helmet:
+- Content Security Policy (CSP)
+- Cross-Origin protections
+- DNS prefetch control
+- Frame protection (deny)
+- HSTS
+- XSS protection
+- And more...
+
+### Monitoring
+
+#### Health Check
+```http
+GET /health
 ```
 
-### Environment Configuration
-```env
-# KILT Network (choose one)
-KILT_NODE_URL=wss://spiritnet.kilt.io        # KILT mainnet (Spiritnet)
-KILT_NODE_URL=wss://peregrine.kilt.io        # KILT testnet (Peregrine)
-
-# PLC Resolver (for proxying PLC DIDs)
-PLC_RESOLVER=https://plc.directory
-
-# Server Configuration
-PORT=3000
+Response:
+```json
+{
+  "status": "ok"
+}
 ```

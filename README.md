@@ -1,6 +1,6 @@
 # KILT-to-PLC DID Resolver
 
-A permissionless extension to the AT Protocol ecosystem that enables interoperability between KILT and AT Protocol services. This resolver acts as a direct drop-in replacement for PLC directory, supporting both KILT and PLC DIDs.
+A permissionless extension to the AT Protocol ecosystem that enables KILT DIDs in AT Protocol services. Acts as a drop-in replacement for PLC directory, resolving both KILT and PLC DIDs.
 
 ## Features
 
@@ -10,6 +10,12 @@ A permissionless extension to the AT Protocol ecosystem that enables interoperab
 - Maintains AT Protocol compatibility
 - Supports KILT mainnet (Spiritnet) and testnet (Peregrine)
 - No modifications required to AT Protocol servers or clients
+- Built-in security features:
+  - Rate limiting
+  - Security headers
+  - Cross-origin protection
+- In-memory caching
+- Health monitoring
 - Fully typed TypeScript implementation
 
 ## Quick Start
@@ -23,6 +29,9 @@ cat > .env << EOL
 KILT_NODE_URL=wss://spiritnet.kilt.io
 PLC_RESOLVER=https://plc.directory
 PORT=3000
+CACHE_TTL_SECONDS=3600
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
 EOL
 
 # Start the server
@@ -60,31 +69,26 @@ curl http://localhost:3000/did:plc:ewvi7nxzyoun6zhxrhs64oiz | jq .
 ## Development
 
 ```bash
-# Run tests
-npm test
+# Testing
+npm test                  # Run all tests
+npm run test:coverage     # Run tests with coverage
+npm run test:watch        # Watch mode for tests
 
-# Start development server
-npm run dev
+# Server
+npm run dev              # Start development server
+npm run build            # Build for production
+npm start                # Start production server
 
-# Build for production
-npm run build
-
-# Start production server
-npm start
+# Diagnostics
+npm run test:connection  # Test KILT node connectivity
+npm run test:plc         # Test PLC resolver connectivity
+npm run list-dids        # List available DIDs on KILT chain
 ```
 
 ## Documentation
 
-- [API Documentation](docs/api.md) - API endpoints and integration guide
-- [KILT to PLC DID Conversion](docs/kilt-plc-did-conversion.md) - Technical details about DID conversion
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/my-new-feature`
-3. Commit your changes: `git commit -am 'Add some feature'`
-4. Push to the branch: `git push origin feature/my-new-feature`
-5. Submit a pull request
+- [API Documentation](docs/api.md)
+- [KILT to PLC DID Conversion](docs/kilt-plc-did-conversion.md)
 
 ## License
 
